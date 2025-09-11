@@ -2,8 +2,8 @@ DROP TABLE IF EXISTS quotes;
 
 CREATE TABLE quotes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    source TEXT DEFAULT 'Unknown source',
+    source TEXT NOT NULL,
     quote TEXT NOT NULL,
-    len TEXT NOT NULL CHECK(len IN ('s', 'm', 'l', 'xl'))
+    len INTEGER NOT NULL
 );
 

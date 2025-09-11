@@ -1,7 +1,7 @@
-github.com/SteveMCWin/archetype-common v0.0.0-20250909154656-c82526ef4ed9 h1:shUivVsgDh5nIAaep+mVYwseGRNIYh4YScZswK0Jx30=
-github.com/SteveMCWin/archetype-common v0.0.0-20250909154656-c82526ef4ed9/go.mod h1:+BYAhUFNvhD2tGnIw5s3ansVvzvLGCSbP3AELO8gTUw=
 github.com/SteveMCWin/archetype-common v0.0.0-20250910121317-e45dbea1c67f h1:CBrc28ANxXfr0Azk4y4iTdcGlogfyFLOZ3imgnc1BwI=
 github.com/SteveMCWin/archetype-common v0.0.0-20250910121317-e45dbea1c67f/go.mod h1:+BYAhUFNvhD2tGnIw5s3ansVvzvLGCSbP3AELO8gTUw=
+github.com/SteveMCWin/archetype-common v0.0.0-20250911183651-5ec3a20a5128 h1:JSAxisiqWnZjeY6OY9nYxh+Ilz3sjm7z+47Nv3ArgMY=
+github.com/SteveMCWin/archetype-common v0.0.0-20250911183651-5ec3a20a5128/go.mod h1:+BYAhUFNvhD2tGnIw5s3ansVvzvLGCSbP3AELO8gTUw=
 github.com/bytedance/sonic v1.11.6 h1:oUp34TzMlL+OY1OUWxHqsdkgC/Zfc85zGqw9siXjrc0=
 github.com/bytedance/sonic v1.11.6/go.mod h1:LysEHSvpvDySVdC2f87zGWf6CIKJcAvqab1ZaiQtds4=
 github.com/bytedance/sonic/loader v0.1.1 h1:c+e5Pt1k/cy5wMveRDyk2X4B9hF4g7an8N3zCYjJFNM=

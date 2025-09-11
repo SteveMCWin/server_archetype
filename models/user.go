@@ -11,7 +11,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-func (Db *DataBase) ReadUser(user_id int) (m.User, error) {
+func (Db *DataBase) ReadUser(user_id uint64) (m.User, error) {
 	user := m.User{}
 
 	err := Db.Data.QueryRow("select id, username, password, email, date_created, tests_started, tests_completed, all_time_avg_wpm, all_time_avg_acc from users where id = ?", user_id).Scan(
@@ -155,7 +155,7 @@ func (Db *DataBase) UpdateUserStats(user *m.User) error {
 	return err
 }
 
-func (Db *DataBase) DeleteUser(user_id int) error {
+func (Db *DataBase) DeleteUser(user_id uint64) error {
 	statement := "DELETE from users where id = ?"
 	stmt, err := Db.Data.Prepare(statement)
 	if err != nil {

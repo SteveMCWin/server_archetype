@@ -3,7 +3,7 @@ module server_archetype
 go 1.24.6
 
 require (
-	github.com/SteveMCWin/archetype-common v0.0.0-20250910121317-e45dbea1c67f
+	github.com/SteveMCWin/archetype-common v0.0.0-20250911183651-5ec3a20a5128
 	github.com/gin-gonic/gin v1.10.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/joho/godotenv v1.5.1

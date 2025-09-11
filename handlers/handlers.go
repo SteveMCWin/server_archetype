@@ -11,7 +11,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
-	// "server_archetype/defs"
 	"server_archetype/mail"
 	"server_archetype/models"
 )
@@ -36,14 +35,13 @@ func SetUpRouter(domain, jwt_key string, db *models.DataBase) *gin.Engine {
 		api.POST("/login", HandlePostLogin(db))
 
 		api.GET("/profile", HandleGetProfile(db))
-		// api.POST("/profile/:user_id", )
 		api.PUT("/profile/credentials", HandlePutProfileCredentials(db))
 		api.POST("/profile/email", HandlePostProfileEmail(db))
 		api.GET("/profile/update_email", HandleGetUpdateEmail(db))
 		api.PUT("/profile/stats", HandlePutProfileStats(db))
 		api.DELETE("/profile")
 
-		api.GET("/quote")
+		api.GET("/quote", HandleGetQuote(db))
 		api.GET("/words")
 
 		api.GET("/leaderboard")
@@ -215,7 +213,7 @@ func HandleGetProfile(db *models.DataBase) func(c *gin.Context) {
 	}
 }
 
-func getUserIdFromJWT(auth_header string) (int, error) {
+func getUserIdFromJWT(auth_header string) (uint64, error) {
 
 	jwt_string := strings.TrimPrefix(auth_header, "Bearer ")
 
@@ -237,7 +235,7 @@ func getUserIdFromJWT(auth_header string) (int, error) {
 		return 0, err
 	}
 
-	user_id, err := strconv.Atoi(user_id_string)
+	user_id, err := strconv.ParseUint(user_id_string, 10, 64)
 	if err != nil {
 		log.Println("Error converting user_id_string to user_id:", err)
 		return 0, err
@@ -346,7 +344,7 @@ func HandlePostProfileEmail(db *models.DataBase) func(c *gin.Context) {
 			Recievers:    []string{new_email},
 			Subject:      "Signup Verification",
 			TempaltePath: "./templates/mail_register.html",
-			ExtLink:      Domain + "/api/profile/update_email?token=" + strconv.Itoa(token_val) + "&email=" + new_email + "&user_id="+strconv.Itoa(user_id)} // NOTE: the domain mustn't end with a '/'
+			ExtLink:      Domain + "/api/profile/update_email?token=" + strconv.Itoa(token_val) + "&email=" + new_email + "&user_id="+strconv.FormatUint(user_id, 10)} // NOTE: the domain mustn't end with a '/'
 
 		err = mail.SendMailHtml(new_mail)
 		if err != nil {
@@ -396,6 +394,38 @@ func HandleGetUpdateEmail(db *models.DataBase) func(c *gin.Context) {
 
 func HandlePutProfileStats(db *models.DataBase) func(c *gin.Context) {
 	return func(c *gin.Context) {
+		var user_data m.User
+		if err := c.BindJSON(&user_data); err != nil {
+			log.Println("Error binding json:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		auth_header := c.GetHeader("Authorization")
+		if auth_header == "" {
+			log.Println("No JWT token provided?!")
+			c.JSON(http.StatusUnauthorized, gin.H{})
+			return
+		}
+
+		user_id, err := getUserIdFromJWT(auth_header)
+		if err != nil {
+			log.Println("Error getting user_id from JWT:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		user_data.Id = user_id
+
+		err = db.UpdateUserStats(&user_data)
+		if err != nil {
+			log.Println("Error updating user stats:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{})
+
 	}
 }
 
@@ -423,5 +453,11 @@ func HandleDeleteProfile(db *models.DataBase) func(c *gin.Context) {
 		}
 
 		c.JSON(http.StatusOK, gin.H{})
+	}
+}
+
+func HandleGetQuote(db *models.DataBase) func(c *gin.Context) {
+	return func(c *gin.Context) {
+
 	}
 }
