@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -35,9 +36,12 @@ func SetUpRouter(domain, jwt_key string, db *models.DataBase) *gin.Engine {
 		api.POST("/login", HandlePostLogin(db))
 
 		api.GET("/profile", HandleGetProfile(db))
-		api.POST("/profile/:user_id", )
-		api.PUT("/profile/:user_id", )
-		api.DELETE("/profile/:user_id", )
+		// api.POST("/profile/:user_id", )
+		api.PUT("/profile/credentials", HandlePutProfileCredentials(db))
+		api.POST("/profile/email", HandlePostProfileEmail(db))
+		api.GET("/profile/update_email", HandleGetUpdateEmail(db))
+		api.PUT("/profile/stats", HandlePutProfileStats(db))
+		api.DELETE("/profile")
 
 		api.GET("/quote")
 		api.GET("/words")
@@ -160,7 +164,7 @@ func HandlePostLogin(db *models.DataBase) func(c *gin.Context) {
 		// 	"sub": user.Id,
 		// }
 
-		claims := jwt.RegisteredClaims {
+		claims := jwt.RegisteredClaims{
 			Subject: strconv.FormatUint(user.Id, 10),
 		}
 
@@ -181,6 +185,7 @@ func HandlePostLogin(db *models.DataBase) func(c *gin.Context) {
 
 func HandleGetProfile(db *models.DataBase) func(c *gin.Context) {
 	return func(c *gin.Context) {
+
 		auth_header := c.GetHeader("Authorization")
 		if auth_header == "" {
 			log.Println("No JWT token provided?!")
@@ -188,34 +193,9 @@ func HandleGetProfile(db *models.DataBase) func(c *gin.Context) {
 			return
 		}
 
-		log.Println("auth_header:", auth_header)
-		jwt_string := strings.TrimPrefix(auth_header, "Bearer ")
-		log.Println("jwt_string", jwt_string)
-
-		token, err := verifyJWT(jwt_string)
+		user_id, err := getUserIdFromJWT(auth_header)
 		if err != nil {
-			log.Println("Invalid JWT:", err)
-			c.JSON(http.StatusUnauthorized, gin.H{})
-			return
-		}
-
-		claims, ok := token.Claims.(jwt.MapClaims)
-		if !ok {
-			log.Println("Couldn't get claims from jwt")
-			c.JSON(http.StatusUnauthorized, gin.H{})
-			return
-		}
-
-		user_id_string, err := claims.GetSubject()
-		if err != nil {
-			log.Println("Couldn't get sub from jwt:", err)
-			c.JSON(http.StatusUnauthorized, gin.H{})
-			return
-		}
-
-		user_id, err := strconv.Atoi(user_id_string)
-		if err != nil {
-			log.Println("Error converting user_id_string to user_id:", err)
+			log.Println("Error getting user_id from JWT:", err)
 			c.JSON(http.StatusInternalServerError, gin.H{})
 			return
 		}
@@ -235,6 +215,37 @@ func HandleGetProfile(db *models.DataBase) func(c *gin.Context) {
 	}
 }
 
+func getUserIdFromJWT(auth_header string) (int, error) {
+
+	jwt_string := strings.TrimPrefix(auth_header, "Bearer ")
+
+	token, err := verifyJWT(jwt_string)
+	if err != nil {
+		log.Println("Invalid JWT:", err)
+		return 0, err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok {
+		log.Println("Couldn't get claims from jwt")
+		return 0, errors.New("Error getting jwt claims")
+	}
+
+	user_id_string, err := claims.GetSubject()
+	if err != nil {
+		log.Println("Couldn't get sub from jwt:", err)
+		return 0, err
+	}
+
+	user_id, err := strconv.Atoi(user_id_string)
+	if err != nil {
+		log.Println("Error converting user_id_string to user_id:", err)
+		return 0, err
+	}
+
+	return user_id, nil
+}
+
 func verifyJWT(jwt_string string) (*jwt.Token, error) {
 	token, err := jwt.Parse(jwt_string, func(token *jwt.Token) (any, error) {
 		return []byte(JwtKey), nil
@@ -249,4 +260,168 @@ func verifyJWT(jwt_string string) (*jwt.Token, error) {
 	}
 
 	return token, nil
+}
+
+func HandlePutProfileCredentials(db *models.DataBase) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		user_name := c.PostForm("username")
+		user_password := c.PostForm("password")
+
+		if user_name == "" || user_password == "" {
+			log.Println("Credentials are empty!!")
+			log.Println("user_user_name:", user_name)
+			log.Println("user_password:", user_password)
+			c.JSON(http.StatusBadRequest, gin.H{})
+			return
+		}
+
+		auth_header := c.GetHeader("Authorization")
+		if auth_header == "" {
+			log.Println("No JWT token provided?!")
+			c.JSON(http.StatusUnauthorized, gin.H{})
+			return
+		}
+
+		user_id, err := getUserIdFromJWT(auth_header)
+		if err != nil {
+			log.Println("Error getting user_id from JWT:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		user, err := db.ReadUser(user_id)
+		if err != nil {
+			log.Println("Error getting old user data:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		err = db.UpdateUserCredentials(&user)
+		if err != nil {
+			log.Println("Error updating user data:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{})
+
+	}
+}
+
+func HandlePostProfileEmail(db *models.DataBase) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		new_email := c.PostForm("email")
+
+		if new_email == "" {
+			log.Println("Credentials are empty!!")
+			log.Println("user_email:", new_email)
+			c.JSON(http.StatusBadRequest, gin.H{})
+			return
+		}
+
+		log.Println("User's email:", new_email)
+		if email_exists := db.EmailExists(new_email); email_exists == true {
+			log.Println("You already have an account!")
+			c.JSON(http.StatusBadRequest, gin.H{})
+			return
+		}
+
+		token_val := CreateToken(new_email, "", "")
+
+		auth_header := c.GetHeader("Authorization")
+		if auth_header == "" {
+			log.Println("No JWT token provided?!")
+			c.JSON(http.StatusUnauthorized, gin.H{})
+			return
+		}
+
+		user_id, err := getUserIdFromJWT(auth_header)
+		if err != nil {
+			log.Println("Error getting user_id from JWT:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		new_mail := &mail.Mail{
+			Recievers:    []string{new_email},
+			Subject:      "Signup Verification",
+			TempaltePath: "./templates/mail_register.html",
+			ExtLink:      Domain + "/api/profile/update_email?token=" + strconv.Itoa(token_val) + "&email=" + new_email + "&user_id="+strconv.Itoa(user_id)} // NOTE: the domain mustn't end with a '/'
+
+		err = mail.SendMailHtml(new_mail)
+		if err != nil {
+			log.Println("FAILLLLED TO SEND MAILLLL")
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{})
+	}
+}
+
+func HandleGetUpdateEmail(db *models.DataBase) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		token_str := c.Query("token")
+		email := c.Query("email")
+		user_id, err := strconv.Atoi(c.Query("user_id"))
+		if err != nil {
+			c.String(http.StatusInternalServerError, "ERROR: couldn't parse user id from usl")
+			return
+		}
+
+		token, err := strconv.Atoi(token_str)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "ERROR: couldn't parse url parameters: "+err.Error())
+			return
+		}
+
+		user_data, ok := signupTokens[token]
+		if !ok {
+			c.String(http.StatusOK, "This token has expired. The expiration time is 10 minutes. Please try signing up again.")
+			return
+		}
+
+		if email != user_data.UserMail {
+			c.String(http.StatusInternalServerError, "The email read from the url doesn't match the email the user provided in the CLI")
+			return
+		}
+
+		db.UpdateUserEmail(user_id, email)
+
+		delete(signupTokens, token)
+
+		c.String(http.StatusOK, "Successfully updated email!")
+	}
+}
+
+func HandlePutProfileStats(db *models.DataBase) func(c *gin.Context) {
+	return func(c *gin.Context) {
+	}
+}
+
+func HandleDeleteProfile(db *models.DataBase) func(c *gin.Context) {
+	return func(c *gin.Context) {
+		auth_header := c.GetHeader("Authorization")
+		if auth_header == "" {
+			log.Println("No JWT token provided?!")
+			c.JSON(http.StatusUnauthorized, gin.H{})
+			return
+		}
+
+		user_id, err := getUserIdFromJWT(auth_header)
+		if err != nil {
+			log.Println("Error getting user_id from JWT:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		err = db.DeleteUser(user_id)
+		if err != nil {
+			log.Println("Error deleting the user:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{})
+	}
 }

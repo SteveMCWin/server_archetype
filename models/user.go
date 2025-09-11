@@ -107,8 +107,8 @@ func (Db *DataBase) CreateUser(user *m.User) (uint64, error) {
 
 }
 
-func (Db *DataBase) UpdateUserCredentials(user m.User) error {
-	statement := "UPDATE users SET username = ?, password = ?, email = ? WHERE id = ?"
+func (Db *DataBase) UpdateUserCredentials(user *m.User) error {
+	statement := "UPDATE users SET username = ?, password = ? WHERE id = ?"
 	stmt, err := Db.Data.Prepare(statement)
 	if err != nil {
 		return err
@@ -116,12 +116,32 @@ func (Db *DataBase) UpdateUserCredentials(user m.User) error {
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(user.UserName, user.Password, user.Email, user.Id)
+	encrypted_pass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+
+	_, err = stmt.Exec(user.UserName, encrypted_pass, user.Id)
 
 	return err
 }
 
-func (Db *DataBase) UpdateUserStats(user m.User) error {
+func (Db *DataBase) UpdateUserEmail(user_id int, new_email string) error {
+	statement := "UPDATE users SET email = ? WHERE id = ?"
+	stmt, err := Db.Data.Prepare(statement)
+	if err != nil {
+		return err
+	}
+
+	defer stmt.Close()
+
+	_, err = stmt.Exec(new_email, user_id)
+
+	return err
+}
+
+
+func (Db *DataBase) UpdateUserStats(user *m.User) error {
 	statement := "UPDATE users SET tests_started = ?, tests_completed = ?, all_time_avg_wpm = ?, all_time_avg_acc = ? WHERE id = ?"
 	stmt, err := Db.Data.Prepare(statement)
 	if err != nil {
