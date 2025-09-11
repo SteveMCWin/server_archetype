@@ -62,30 +62,30 @@ func (Db *DataBase) AuthUser(email, password string) (m.User, error) {
 	return user, nil
 }
 
-func (Db *DataBase) CreateUser(user m.User) error {
+func (Db *DataBase) CreateUser(user *m.User) (uint64, error) {
 	if user.Email == "" {
-		return errors.New("Cannot store a user without their email")
+		return defs.NO_ID, errors.New("Cannot store a user without their email")
 	}
 
 	// used to check if the user already has an account
 	err := Db.Data.QueryRow("select id from users where email = ?", user.Email).Scan(&user.Id)
 
 	if err == nil {
-		return errors.New("ERROR: user already has an account")
+		return defs.NO_ID, errors.New("ERROR: user already has an account")
 	}
 
-	statement := "insert into users (username, password, email, date_created, tests_started, tests_completed, all_time_avg_wpm, all_time_avg_acc) values (?, ?, ?, ?, ?, ?, ?, ?)"
+	statement := "insert into users (username, password, email, date_created, tests_started, tests_completed, all_time_avg_wpm, all_time_avg_acc) values (?, ?, ?, ?, ?, ?, ?, ?) returning id"
 	var stmt *sql.Stmt
 	stmt, err = Db.Data.Prepare(statement)
 	if err != nil {
-		return err
+		return defs.NO_ID, err
 	}
 
 	defer stmt.Close()
 
 	encrypted_pass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
 	if err != nil {
-		return err
+		return defs.NO_ID, err
 	}
 
 	err = stmt.QueryRow(
@@ -97,13 +97,13 @@ func (Db *DataBase) CreateUser(user m.User) error {
 		defs.DEFAULT_NUM_TESTS,
 		defs.DEFAULT_WPM,
 		defs.DEFAULT_ACC,
-		).Scan()
+		).Scan(&user.Id)
 
 	if err != nil {
-		return err
+		return defs.NO_ID, err
 	}
 
-	return nil
+	return user.Id, nil
 
 }
 

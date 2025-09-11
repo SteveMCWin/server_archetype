@@ -28,14 +28,16 @@ func SetUpRouter(domain, jwt_key string, db *models.DataBase) *gin.Engine {
 	api := router.Group("/api")
 
 	{
+		api.GET("/ping", HandleGetPing())
+
 		api.POST("/signup", HandlePostSignup(db))
 		api.GET("/verify", HandleGetVerify(db))
 		api.POST("/login", HandlePostLogin(db))
 
-		api.GET("/profile/:user_id")
-		api.POST("/profile/:user_id")
-		api.PUT("/profile/:user_id")
-		api.DELETE("/profile/:user_id")
+		api.GET("/profile", HandleGetProfile(db))
+		api.POST("/profile/:user_id", )
+		api.PUT("/profile/:user_id", )
+		api.DELETE("/profile/:user_id", )
 
 		api.GET("/quote")
 		api.GET("/words")
@@ -46,15 +48,31 @@ func SetUpRouter(domain, jwt_key string, db *models.DataBase) *gin.Engine {
 	return router
 }
 
+func HandleGetPing() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		c.String(http.StatusOK, "pong")
+	}
+}
+
 func HandlePostSignup(db *models.DataBase) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		user_email := c.PostForm("email")
 		user_password := c.PostForm("password")
 		user_name := c.PostForm("username")
 
+		if user_email == "" || user_password == "" || user_name == "" {
+			log.Println("Credentials are empty!!")
+			log.Println("user_email:", user_email)
+			log.Println("user_password:", user_password)
+			log.Println("user_name:", user_name)
+			c.JSON(http.StatusBadRequest, gin.H{})
+			return
+		}
+
 		log.Println("User's email:", user_email)
 		if email_exists := db.EmailExists(user_email); email_exists == true {
 			log.Println("You already have an account!")
+			c.JSON(http.StatusBadRequest, gin.H{})
 			return
 		}
 
@@ -69,8 +87,11 @@ func HandlePostSignup(db *models.DataBase) func(c *gin.Context) {
 		err := mail.SendMailHtml(new_mail)
 		if err != nil {
 			log.Println("FAILLLLED TO SEND MAILLLL")
+			c.JSON(http.StatusInternalServerError, gin.H{})
 			return
 		}
+
+		c.JSON(http.StatusOK, gin.H{})
 	}
 }
 
@@ -102,7 +123,7 @@ func HandleGetVerify(db *models.DataBase) func(c *gin.Context) {
 			UserName: user_data.UserName,
 		}
 
-		err = db.CreateUser(new_user)
+		_, err = db.CreateUser(&new_user)
 		if err != nil {
 			c.String(http.StatusInternalServerError, "Error creating user: "+err.Error())
 			return
@@ -117,28 +138,36 @@ func HandleGetVerify(db *models.DataBase) func(c *gin.Context) {
 func HandlePostLogin(db *models.DataBase) func(c *gin.Context) {
 	return func(c *gin.Context) {
 
-		var user m.User
-		var err error
-		if err = c.ShouldBindJSON(&user); err != nil {
-			log.Println("Error binding json")
-			c.JSON(http.StatusInternalServerError, gin.H{})
+		user_email := c.PostForm("email")
+		user_password := c.PostForm("password")
+
+		if user_email == "" || user_password == "" {
+			log.Println("Credentials are empty!!")
+			log.Println("user_email:", user_email)
+			log.Println("user_password:", user_password)
+			c.JSON(http.StatusBadRequest, gin.H{})
 			return
 		}
 
-		user, err = db.AuthUser(user.Email, user.Password)
+		user, err := db.AuthUser(user_email, user_password)
 		if err != nil {
 			log.Println("Error reading user data from database")
 			c.JSON(http.StatusInternalServerError, gin.H{})
 			return
 		}
 
-		claims := jwt.MapClaims {
-			"sub": user.Id,
+		// claims := jwt.MapClaims {
+		// 	"sub": user.Id,
+		// }
+
+		claims := jwt.RegisteredClaims {
+			Subject: strconv.FormatUint(user.Id, 10),
 		}
+
 		t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-		token, err := t.SignedString(JwtKey)
+		token, err := t.SignedString([]byte(JwtKey))
 		if err != nil {
-			log.Println("Error creating a JWT")
+			log.Println("Error creating a JWT:", err)
 			c.JSON(http.StatusInternalServerError, gin.H{})
 			return
 		}
@@ -161,6 +190,7 @@ func HandleGetProfile(db *models.DataBase) func(c *gin.Context) {
 
 		log.Println("auth_header:", auth_header)
 		jwt_string := strings.TrimPrefix(auth_header, "Bearer ")
+		log.Println("jwt_string", jwt_string)
 
 		token, err := verifyJWT(jwt_string)
 		if err != nil {
@@ -171,17 +201,32 @@ func HandleGetProfile(db *models.DataBase) func(c *gin.Context) {
 
 		claims, ok := token.Claims.(jwt.MapClaims)
 		if !ok {
+			log.Println("Couldn't get claims from jwt")
 			c.JSON(http.StatusUnauthorized, gin.H{})
 			return
 		}
 
-		user_id, ok := claims["sub"].(int)
-		if !ok {
+		user_id_string, err := claims.GetSubject()
+		if err != nil {
+			log.Println("Couldn't get sub from jwt:", err)
 			c.JSON(http.StatusUnauthorized, gin.H{})
+			return
+		}
+
+		user_id, err := strconv.Atoi(user_id_string)
+		if err != nil {
+			log.Println("Error converting user_id_string to user_id:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
 			return
 		}
 
 		user, err := db.ReadUser(user_id)
+
+		if err != nil {
+			log.Println("Error loading user data:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
 
 		c.JSON(http.StatusOK, gin.H{
 			"profile": user,
@@ -192,7 +237,7 @@ func HandleGetProfile(db *models.DataBase) func(c *gin.Context) {
 
 func verifyJWT(jwt_string string) (*jwt.Token, error) {
 	token, err := jwt.Parse(jwt_string, func(token *jwt.Token) (any, error) {
-		return JwtKey, nil
+		return []byte(JwtKey), nil
 	})
 
 	if err != nil {
