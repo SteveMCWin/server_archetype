@@ -39,7 +39,7 @@ func SetUpRouter(domain, jwt_key string, db *models.DataBase) *gin.Engine {
 		api.POST("/profile/email", HandlePostProfileEmail(db))
 		api.GET("/profile/update_email", HandleGetUpdateEmail(db))
 		api.PUT("/profile/stats", HandlePutProfileStats(db))
-		api.DELETE("/profile")
+		api.DELETE("/profile", HandleDeleteProfile(db))
 
 		api.GET("/quote", HandleGetQuote(db))
 		api.GET("/words")
@@ -294,6 +294,9 @@ func HandlePutProfileCredentials(db *models.DataBase) func(c *gin.Context) {
 			return
 		}
 
+		user.UserName = user_name
+		user.Password = user_password
+
 		err = db.UpdateUserCredentials(&user)
 		if err != nil {
 			log.Println("Error updating user data:", err)
@@ -317,7 +320,7 @@ func HandlePostProfileEmail(db *models.DataBase) func(c *gin.Context) {
 			return
 		}
 
-		log.Println("User's email:", new_email)
+		log.Println("New email:", new_email)
 		if email_exists := db.EmailExists(new_email); email_exists == true {
 			log.Println("You already have an account!")
 			c.JSON(http.StatusBadRequest, gin.H{})
@@ -344,7 +347,7 @@ func HandlePostProfileEmail(db *models.DataBase) func(c *gin.Context) {
 			Recievers:    []string{new_email},
 			Subject:      "Signup Verification",
 			TempaltePath: "./templates/mail_register.html",
-			ExtLink:      Domain + "/api/profile/update_email?token=" + strconv.Itoa(token_val) + "&email=" + new_email + "&user_id="+strconv.FormatUint(user_id, 10)} // NOTE: the domain mustn't end with a '/'
+			ExtLink:      Domain + "/api/profile/update_email?token=" + strconv.Itoa(token_val) + "&email=" + new_email + "&user_id=" + strconv.FormatUint(user_id, 10)} // NOTE: the domain mustn't end with a '/'
 
 		err = mail.SendMailHtml(new_mail)
 		if err != nil {
@@ -388,7 +391,7 @@ func HandleGetUpdateEmail(db *models.DataBase) func(c *gin.Context) {
 
 		delete(signupTokens, token)
 
-		c.String(http.StatusOK, "Successfully updated email!")
+		c.String(http.StatusOK, "Successfully updated email to "+email)
 	}
 }
 
@@ -458,6 +461,24 @@ func HandleDeleteProfile(db *models.DataBase) func(c *gin.Context) {
 
 func HandleGetQuote(db *models.DataBase) func(c *gin.Context) {
 	return func(c *gin.Context) {
+		quote_len_str := c.Query("length")
+		quote_len_int, err := strconv.Atoi(quote_len_str)
+		if err != nil {
+			log.Println("No length parameter provided!!!")
+			quote_len_int = int(m.QUOTE_ANY_SIZE)
+			return
+		}
+		quote_len := m.QuoteLen(quote_len_int)
+		quote_request := m.QuoteRequest{Length: quote_len}
 
+		quote, err := db.RandomQuote(quote_request)
+
+		if err != nil {
+			log.Println("Error getting random quote:", err)
+			c.JSON(http.StatusInternalServerError, gin.H{})
+			return
+		}
+
+		c.JSON(http.StatusOK, quote)
 	}
 }

@@ -114,6 +114,9 @@ func (Db *DataBase) UpdateUserCredentials(user *m.User) error {
 		return err
 	}
 
+	log.Println("New pass:", user.Password)
+	log.Println("New name:", user.UserName)
+
 	defer stmt.Close()
 
 	encrypted_pass, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)

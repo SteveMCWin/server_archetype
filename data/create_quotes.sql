@@ -4,6 +4,7 @@ CREATE TABLE quotes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     source TEXT NOT NULL,
     quote TEXT NOT NULL,
-    len INTEGER NOT NULL
+    len INTEGER NOT NULL,
+    num_of_stars INTEGER DEFAULT 0
 );
 

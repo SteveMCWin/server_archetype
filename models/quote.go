@@ -29,6 +29,10 @@ func (Db *DataBase) ReadQuote(quote_id uint64) (m.Quote, error) {
 }
 
 func (Db *DataBase) RandomQuote(req m.QuoteRequest) (m.Quote, error) {
+	if req.Length > m.QUOTE_ANY_SIZE {
+		return m.Quote{}, errors.New("Invalid quote length provided: "+strconv.Itoa(int(req.Length)))
+	}
+
 	if req.Length == m.QUOTE_ANY_SIZE {
 		req.Length = m.QuoteLen(rand.Intn(int(m.QUOTE_ANY_SIZE)))
 	}
@@ -49,6 +53,10 @@ func (Db *DataBase) RandomQuote(req m.QuoteRequest) (m.Quote, error) {
 }
 
 func (Db *DataBase) CreateQuote(quote m.Quote) (uint64, error) {
+	if quote.Source == "" {
+		return 0, errors.New("A quote must have the source included")
+	}
+
 	quote.Quote = strings.TrimSpace(quote.Quote)
 
 	err := Db.Data.QueryRow("select id from quotes where quote = ?", quote.Quote).Scan(&quote.Id)
