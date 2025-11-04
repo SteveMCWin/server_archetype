@@ -12,4 +12,4 @@ INSERT INTO quotes (quote, source, len) VALUES
 ('It was the best of times, it was the worst of times, it was the age of wisdom, it was the age of foolishness, it was the epoch of belief, it was the epoch of incredulity, it was the season of Light, it was the season of Darkness, it was the spring of hope, it was the winter of despair.', 'Charles Dickens, A Tale of Two Cities', 1),
 ('Beware; for I am fearless, and therefore powerful.', 'Mary Shelley, Frankenstein', 0),
 ('I wanted you to see what real courage is, instead of getting the idea that courage is a man with a gun in his hand. It''s when you know you''re licked before you begin but you begin anyway and you see it through no matter what. You rarely win, but sometimes you do.', 'Harper Lee, To Kill a Mockingbird', 1),
-('The same substance composes us — the tree overhead, the stone beneath us, the bird, the beast, the star — we are all one, all moving to the same end.', 'P.L. Travers, Mary Poppins', 1);
+('The same substance composes us - the tree overhead, the stone beneath us, the bird, the beast, the star - we are all one, all moving to the same end.', 'P.L. Travers, Mary Poppins', 1);

@@ -30,7 +30,7 @@ go.work.sum
 # databases
 data/*.db
 
-fitness_app
+server_archetype
 
 # Editor/IDE
 # .idea/
